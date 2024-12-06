@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react';
 import './App.css';
 import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-dom';
 import StorageApp from './pages/storageApp';
+import Navbar from './components/Navbar';
 
 function App() {
   // State to track MetaMask connection
@@ -81,6 +82,7 @@ function App() {
   return (
     <Router>
       <div className="App">
+        <Navbar />
         {!isConnected ? (
           <div>
             <h1>welcome to Moon</h1>
@@ -89,8 +91,8 @@ function App() {
           </div>
         ) : (
           <Routes>
-            <Route path="/home" element={<StorageApp />} />
-            <Route path="/" element={<Navigate to="/home" replace />} />
+            <Route path="/app" element={<StorageApp />} />
+            <Route path="/" element={<Navigate to="/app" replace />} />
           </Routes>
         )}
       </div>

@@ -1,85 +1,136 @@
-import React, { useState, useEffect } from 'react';
+import { useState } from "react";
+import axios from "axios";
+import { ethers, BrowserProvider, Contract } from "ethers";
+import { CONTRACT_ADDRESS, CONTRACT_ABI } from "../constants";
 
 function StorageApp() {
-  // State declarations
-  const [files, setFiles] = useState([]);
-  const [isLoading, setIsLoading] = useState(false);
-  const [error, setError] = useState(null);
+    const [file, setFile] = useState(null);
+    const [fileName, setFileName] = useState("No file selected");
+    const [uploading, setUploading] = useState(false);
+    const [files, setFiles] = useState([]);
 
-  // Effect for initial load
-  useEffect(() => {
-    // Add initialization logic here
-    const initializeStorage = async () => {
-      try {
-        setIsLoading(true);
-        // Add your initialization code here
-        // e.g., fetch user's files, check storage status, etc.
-      } catch (err) {
-        setError(err.message);
-      } finally {
-        setIsLoading(false);
-      }
+    // Function to handle file upload to Pinata and smart contract
+    const handleSubmit = async (e) => {
+        e.preventDefault();
+        if (!file) return;
+
+        try {
+            setUploading(true);
+
+            // 1. Upload to Pinata
+            const formData = new FormData();
+            formData.append("file", file);
+
+            const resFile = await axios({
+                method: "post",
+                url: "https://api.pinata.cloud/pinning/pinFileToIPFS",
+                data: formData,
+                headers: {
+                  pinata_api_key: process.env.REACT_APP_PINATA_API_KEY,
+                  pinata_secret_api_key: process.env.REACT_APP_PINATA_SECRET_KEY,
+                    "Content-Type": "multipart/form-data",
+                },
+            });
+
+            const ipfsHash = resFile.data.IpfsHash;
+
+            // 2. Store in smart contract
+            const provider = new BrowserProvider(window.ethereum);
+            const signer = await provider.getSigner();
+            const contract = new Contract(
+                CONTRACT_ADDRESS,
+                CONTRACT_ABI,
+                signer
+            );
+
+            // Call our smart contract's addFile function
+            const tx = await contract.addFile(ipfsHash, fileName);
+            await tx.wait();
+
+            // Reset form
+            setFileName("No file selected");
+            setFile(null);
+            
+            // Refresh files list
+            loadUserFiles();
+
+        } catch (error) {
+            console.error("Error uploading file:", error);
+            alert("Failed to upload file");
+        } finally {
+            setUploading(false);
+        }
     };
 
-    initializeStorage();
-  }, []);
+    // Function to load user's files from smart contract
+    const loadUserFiles = async () => {
+        try {
+          const provider = await ethers.BrowserProvider(window.ethereum);
+            const signer = provider.getSigner();
+            const contract = new ethers.Contract(
+                CONTRACT_ADDRESS,
+                CONTRACT_ABI,
+                signer
+            );
 
-  // Handler functions
-  const handleFileUpload = async (event) => {
-    // Add file upload logic
-  };
+            const userFiles = await contract.getUserFiles();
+            setFiles(userFiles.filter(file => file.exists));
+        } catch (error) {
+            console.error("Error loading files:", error);
+        }
+    };
 
-  const handleFileDelete = async (fileId) => {
-    // Add file deletion logic
-  };
+    // Handle file selection
+    const handleFileSelect = (e) => {
+        const selectedFile = e.target.files[0];
+        if (selectedFile) {
+            setFile(selectedFile);
+            setFileName(selectedFile.name);
+        }
+    };
 
-  // Render loading state
-  if (isLoading) {
-    return <div>Loading...</div>;
-  }
+    return (
+        <div className="container mx-auto p-4">
+            <form onSubmit={handleSubmit} className="mb-8">
+                <div className="flex flex-col gap-4">
+                    <input
+                        type="file"
+                        onChange={handleFileSelect}
+                        className="border p-2 rounded"
+                    />
+                    <span>Selected: {fileName}</span>
+                    <button
+                        type="submit"
+                        disabled={!file || uploading}
+                        className="bg-blue-500 text-white px-4 py-2 rounded disabled:bg-gray-400"
+                    >
+                        {uploading ? "Uploading..." : "Upload File"}
+                    </button>
+                </div>
+            </form>
 
-  // Render error state
-  if (error) {
-    return <div>Error: {error}</div>;
-  }
-
-  // Main render
-  return (
-    <div className="storage-app">
-      <header className="storage-app-header">
-        <h1>Storage App</h1>
-      </header>
-
-      <main className="storage-app-main">
-        {/* File Upload Section */}
-        <section className="upload-section">
-          <input
-            type="file"
-            onChange={handleFileUpload}
-            accept="*/*"
-          />
-        </section>
-
-        {/* Files List Section */}
-        <section className="files-section">
-          {files.length === 0 ? (
-            <p>No files uploaded yet</p>
-          ) : (
-            <ul className="files-list">
-              {files.map((file) => (
-                <li key={file.id} className="file-item">
-                  <span>{file.name}</span>
-                  <button onClick={() => handleFileDelete(file.id)}>
-                    Delete
-                  </button>
-                </li>
-              ))}
-            </ul>
-          )}
-        </section>
-      </main>
-    </div>
-  );
+            {/* Display files */}
+            <div className="mt-8">
+                <h2 className="text-xl font-bold mb-4">Your Files</h2>
+                <div className="grid gap-4">
+                    {files.map((file, index) => (
+                        <div key={index} className="border p-4 rounded">
+                            <p>Name: {file.fileName}</p>
+                            <p>IPFS: {file.ipfsHash}</p>
+                            <a 
+                                href={`https://gateway.pinata.cloud/ipfs/${file.ipfsHash}`}
+                                target="_blank"
+                                rel="noopener noreferrer"
+                                className="text-blue-500"
+                            >
+                                View File
+                            </a>
+                        </div>
+                    ))}
+                </div>
+            </div>
+        </div>
+    );
 }
 
 export default StorageApp;
