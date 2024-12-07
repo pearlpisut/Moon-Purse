@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import axios from "axios";
 import { ethers, BrowserProvider, Contract } from "ethers";
 import { CONTRACT_ADDRESS, CONTRACT_ABI } from "../constants";
@@ -9,6 +9,11 @@ function StorageApp() {
     const [uploading, setUploading] = useState(false);
     const [files, setFiles] = useState([]);
 
+    // Add useEffect to load files when component mounts
+    useEffect(() => {
+        loadUserFiles();
+    }, []);  // Empty dependency array means this runs once on mount
+
     // Function to handle file upload to Pinata and smart contract
     const handleSubmit = async (e) => {
         e.preventDefault();
@@ -17,7 +22,10 @@ function StorageApp() {
         try {
             setUploading(true);
 
-            // 1. Upload to Pinata
+            // Debug logs to verify environment variables
+            console.log("API Key available:", !!process.env.REACT_APP_PINATA_API_KEY);
+            console.log("Secret Key available:", !!process.env.REACT_APP_PINATA_SECRET_KEY);
+
             const formData = new FormData();
             formData.append("file", file);
 
@@ -26,8 +34,8 @@ function StorageApp() {
                 url: "https://api.pinata.cloud/pinning/pinFileToIPFS",
                 data: formData,
                 headers: {
-                  pinata_api_key: process.env.REACT_APP_PINATA_API_KEY,
-                  pinata_secret_api_key: process.env.REACT_APP_PINATA_SECRET_KEY,
+                    pinata_api_key: `${process.env.REACT_APP_PINATA_API_KEY}`,
+                    pinata_secret_api_key: `${process.env.REACT_APP_PINATA_SECRET_KEY}`,
                     "Content-Type": "multipart/form-data",
                 },
             });
@@ -56,6 +64,13 @@ function StorageApp() {
 
         } catch (error) {
             console.error("Error uploading file:", error);
+            // More detailed error logging
+            if (error.response) {
+                console.error("Pinata Response Error:", {
+                    status: error.response.status,
+                    data: error.response.data
+                });
+            }
             alert("Failed to upload file");
         } finally {
             setUploading(false);
@@ -65,18 +80,59 @@ function StorageApp() {
     // Function to load user's files from smart contract
     const loadUserFiles = async () => {
         try {
-          const provider = await ethers.BrowserProvider(window.ethereum);
-            const signer = provider.getSigner();
-            const contract = new ethers.Contract(
+            if (!window.ethereum) {
+                console.log("Please install MetaMask");
+                return;
+            }
+
+            // Add network check
+            const chainId = await window.ethereum.request({ method: 'eth_chainId' });
+            console.log("Connected to chain:", chainId);
+            
+            if (chainId !== '0x539') { // 1337 in hex
+                console.error("Please connect to Localhost:8545");
+                return;
+            }
+
+            const provider = new BrowserProvider(window.ethereum);
+            const signer = await provider.getSigner();
+            
+            console.log("Signer address:", await signer.getAddress());
+            console.log("Contract Address:", CONTRACT_ADDRESS);
+            
+            const contract = new Contract(
                 CONTRACT_ADDRESS,
                 CONTRACT_ABI,
                 signer
             );
 
+            // Test contract connection
+            const count = await contract.getUserFileCount();
+            console.log("File count:", count);
+            
             const userFiles = await contract.getUserFiles();
+            console.log("Raw userFiles response:", userFiles);
+            
             setFiles(userFiles.filter(file => file.exists));
         } catch (error) {
-            console.error("Error loading files:", error);
+            console.error("Detailed error:", {
+                message: error.message,
+                code: error.code,
+                data: error.data,
+                stack: error.stack
+            });
+            
+            // Check specific conditions
+            if (!window.ethereum.selectedAddress) {
+                console.error("No account selected. Please connect MetaMask");
+            }
+            
+            if (error.code === 'BAD_DATA') {
+                console.log("Contract interaction error. Please check:");
+                console.log("1. MetaMask is connected to localhost:8545");
+                console.log("2. Contract is deployed to the correct network");
+                console.log("3. Contract address is correct:", CONTRACT_ADDRESS);
+            }
         }
     };
 

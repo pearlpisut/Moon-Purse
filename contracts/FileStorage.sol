@@ -3,16 +3,15 @@ pragma solidity ^0.8.19;
 
 contract FileStorage {
     // Structure for file information
-    struct FileInfo {
-        string ipfsHash;      // IPFS hash from Pinata
-        string fileName;      // Original file name
-        uint256 timestamp;    // Upload timestamp
-        bool exists;          // To check if file exists
+    struct File {
+        string fileName;
+        string ipfsHash;
+        bool exists;
     }
 
     // Mapping from user address to their files
     // Using array as users can have multiple files
-    mapping(address => FileInfo[]) private userFiles;
+    mapping(address => File[]) private userFiles;
 
     // Events for frontend updates
     event FileUploaded(
@@ -32,10 +31,9 @@ contract FileStorage {
         require(bytes(_ipfsHash).length > 0, "IPFS hash cannot be empty");
         require(bytes(_fileName).length > 0, "File name cannot be empty");
 
-        FileInfo memory newFile = FileInfo({
+        File memory newFile = File({
             ipfsHash: _ipfsHash,
             fileName: _fileName,
-            timestamp: block.timestamp,
             exists: true
         });
 
@@ -45,7 +43,7 @@ contract FileStorage {
     }
 
     // Get all files for a user
-    function getUserFiles() public view returns (FileInfo[] memory) {
+    function getUserFiles() public view returns (File[] memory) {
         return userFiles[msg.sender];
     }
 
