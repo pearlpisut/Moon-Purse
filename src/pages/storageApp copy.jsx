@@ -1,30 +1,16 @@
 import { useState, useEffect } from "react";
 import axios from "axios";
-import { BrowserProvider, Contract } from "ethers";
+import { ethers, BrowserProvider, Contract } from "ethers";
 import { CONTRACT_ADDRESS, CONTRACT_ABI } from "../constants";
 
-// our components and utilities
-import FileQuotaMeter from "../components/FileQuotaMeter";
-import { downloadImage, formatFileSize } from '../utils/utilFunctions';
-
 function StorageApp() {
-    const [files, setFiles] = useState([]); // all current user's files fetched from backend
-    const [file, setFile] = useState(null); // file being uploaded
-    const [fileName, setFileName] = useState("No file selected"); // such file's name
-
-    // for UI purpose
+    const [file, setFile] = useState(null);
+    const [fileName, setFileName] = useState("No file selected");
     const [uploading, setUploading] = useState(false);
+    const [files, setFiles] = useState([]);
     const [isDeleting, setIsDeleting] = useState(false);
+    const [deleteError, setDeleteError] = useState(null);
     const [currentWallet, setCurrentWallet] = useState("");
-    const [totalFileSize, setTotalFileSize] = useState(0);
-        
-    const TOTAL_STORAGE_MB = 500; // Storage quota
-
-    useEffect(() => {
-        // Calculate total file size whenever files change
-        const totalSize = files.reduce((sum, file) => sum + file.size, 0);
-        setTotalFileSize(totalSize/(1024*1024));
-    }, [files]);
 
     // Add useEffect to get wallet address when component mounts
     useEffect(() => {
@@ -45,22 +31,20 @@ function StorageApp() {
     // Add useEffect to load files when component mounts
     useEffect(() => {
         loadUserFiles();
-    }, []);
-    
+    }, []);  // Empty dependency array means this runs once on mount
+
     // Function to handle file upload to Pinata and smart contract
     const handleSubmit = async (e) => {
         e.preventDefault();
-        if (!file) {
-            console.log("weird")
-            return;
-        }
+        if (!file) return;
+
         try {
             setUploading(true);
 
             // 1. Upload to Pinata
             const formData = new FormData();
-            console.log("from handleSubmit: ", fileName)
             formData.append("file", file);
+
             const resFile = await axios({
                 method: "post",
                 url: "https://api.pinata.cloud/pinning/pinFileToIPFS",
@@ -171,15 +155,13 @@ function StorageApp() {
         if (selectedFile) {
             setFile(selectedFile);
             setFileName(selectedFile.name);
-            console.log("prepare to upload: ", selectedFile.name)
-            handleSubmit(e)
         }
     };
 
     // Add this new function in your StorageApp component
     const handleDeleteFile = async (fileIndex, ipfsHash) => {
         try {
-            setIsDeleting(true); // Reuse the loading state
+            setUploading(true); // Reuse the loading state
 
             // 1. Delete from smart contract
             const provider = new BrowserProvider(window.ethereum);
@@ -220,13 +202,20 @@ function StorageApp() {
         }
     };
 
+    // Add this helper function
+    const formatFileSize = (bytes) => {
+        if (bytes === 0) return '0 Bytes';
+        const k = 1024;
+        const sizes = ['Bytes', 'KB', 'MB', 'GB'];
+        const i = Math.floor(Math.log(bytes) / Math.log(k));
+        return parseFloat((bytes / Math.pow(k, i)).toFixed(2)) + ' ' + sizes[i];
+    };
+
     return (
       <div className="min-h-screen w-full flex items-center justify-center bg-gray-50">
       <div className="w-[1200px] bg-white shadow-md rounded-lg min-h-[800px] p-6">
         <div>
             <h1 className="text-xl font-title text-neutral-950">File Storage</h1>
-            {/* Progress Bar for Storage Usage */}
-            <FileQuotaMeter TOTAL_STORAGE_MB={TOTAL_STORAGE_MB} totalFileSize={totalFileSize} />
             <p className="text-sm text-gray-500 mt-1">
                 Connected Wallet: {currentWallet ? 
                     `${currentWallet.slice(0, 6)}...${currentWallet.slice(-4)}` : 
@@ -234,40 +223,48 @@ function StorageApp() {
             </p>
         </div>
         <div className="container mx-auto p-4">
-            <form className="mb-8">
+            <form onSubmit={handleSubmit} className="mb-8">
                 <div className="flex flex-col gap-4">
-                <label htmlFor="file-upload" className="bg-blue-800 text-primary-50 px-4 py-2 rounded-md text-sm cursor-pointer">
-                    Upload
-                </label>
-                <input
-                    type="file"
-                    id="file-upload"
-                    onChange={handleFileSelect}
-                    className="hidden" // Hide the default file input
-                />
+                    <input
+                        type="file"
+                        onChange={handleFileSelect}
+                        className="border p-2 rounded"
+                    />
+                    <span>Selected: {fileName}</span>
+                    <button
+                        type="submit"
+                        disabled={!file || uploading}
+                        className="bg-blue-500 text-white px-4 py-2 rounded disabled:bg-gray-400"
+                    >
+                        {uploading ? "Uploading..." : "Upload File"}
+                    </button>
                 </div>
             </form>
 
             {/* Display files */}
             {/* column name */}
             <div className="grid grid-cols-12 gap-4 p-4 border-b border-neutral-200">
-              <span className="col-span-5 text-sm text-left text-neutral-500">File Name</span>
-              <span className="col-span-3 text-sm text-left text-neutral-500">Upload Time</span>
-              <span className="col-span-2 text-sm text-left text-neutral-500">Size</span>
-              <span className="col-span-1 text-sm text-left text-neutral-500">Actions</span>
+              <span className="col-span-1 flex items-center justify-center text-sm text-neutral-500">Select</span>
+              <span className="col-span-5 text-sm text-neutral-500">File Name</span>
+              <span className="col-span-3 text-sm text-neutral-500">Upload Time</span>
+              <span className="col-span-2 text-sm text-neutral-500">Shared</span>
+              <span className="col-span-1 text-sm text-neutral-500">Actions</span>
             </div>
             <div className="flex flex-col space-y-4 mt-4">
                     {files.map((file, index) => {
                         return (
                             <div key={index} className="grid grid-cols-12 items-center py-3 px-4 bg-neutral-50 rounded-md">
-                                <span className="col-span-5 text-neutral-950 text-left">{file.fileName}</span>
-                                <span className="col-span-3 text-neutral-500 text-left">
+                                <div className="col-span-1 flex items-center justify-center">
+                                    <input type="checkbox" className="w-[20px] h-[20px] rounded-full text-blue-800 focus:ring-blue-800" />
+                                </div>
+                                <span className="col-span-5 text-neutral-950">{file.fileName}</span>
+                                <span className="col-span-3 text-neutral-500">
                                     {file.uploadTime ? new Date(file.uploadTime).toLocaleString() : 'Unknown'}
                                 </span>
-                                <span className="col-span-2 text-neutral-500 text-left">
+                                <span className="col-span-2 text-neutral-500">
                                     {file.size ? formatFileSize(file.size) : 'Unknown'}
                                 </span>
-                                <div className="col-span-2 flex gap-2 justify-start">
+                                <div className="col-span-1 flex gap-2">
                                     <a
                                         href={`https://gateway.pinata.cloud/ipfs/${file.ipfsHash}`}
                                         target="_blank"
@@ -279,15 +276,9 @@ function StorageApp() {
                                     <button
                                         onClick={() => handleDeleteFile(index, file.ipfsHash)}
                                         className="btn btn-error btn-sm"
-                                        disabled={isDeleting}
+                                        disabled={uploading}
                                     >
                                         {uploading ? 'Deleting...' : 'Delete'}
-                                    </button>
-                                    <button
-                                        onClick={() => downloadImage(`https://gateway.pinata.cloud/ipfs/${file.ipfsHash}`, file.fileName)}
-                                        className="btn btn-success btn-sm"
-                                    >
-                                        Download
                                     </button>
                                 </div>
                             </div>
@@ -295,6 +286,18 @@ function StorageApp() {
                     })}
               </div>
             </div>
+            {/* shows when deleting fails */}
+            {deleteError && (
+                <div className="alert alert-error mb-4">
+                    {deleteError}
+                    <button 
+                        onClick={() => setDeleteError(null)}
+                        className="ml-auto"
+                    >
+                        ✕
+                    </button>
+                </div>
+            )}
         </div>
       </div>
     );

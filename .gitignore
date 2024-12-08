@@ -33,3 +33,7 @@ yarn-debug.log*
 yarn-error.log*
 
 .env
+
+postcss.config.js
+tailwind.config.js
+hardhat.config.js
