@@ -6,9 +6,12 @@ import { CONTRACT_ADDRESS, CONTRACT_ABI } from "../constants";
 // our components and utilities
 import FileQuotaMeter from "../components/FileQuotaMeter";
 import { downloadImage, formatFileSize } from '../utils/utilFunctions';
+import LoadingSpinner from "../components/LoadingSpinner";
 
 function StorageApp() {
     const [files, setFiles] = useState([]); // all current user's files fetched from backend
+    const [toshowFiles, setToshowFile] = useState([])
+    const [waitforload, setWaitforload] = useState(false)
     // const [file, setFile] = useState(null); // file being uploaded
     // const [fileName, setFileName] = useState("No file selected"); // such file's name
 
@@ -136,6 +139,7 @@ function StorageApp() {
     // Function to load files from Pinata
     const loadUserFiles = async () => {
         try {
+            setWaitforload(true);
             // 1. Get and verify current wallet
             const provider = new BrowserProvider(window.ethereum);
             const signer = await provider.getSigner();
@@ -148,16 +152,21 @@ function StorageApp() {
                 CONTRACT_ABI,
                 signer
             );
-            var contractFiles = await contract.getUserFiles();
+            const contractFiles = await contract.getUserFiles();
+            var toshowFileList = contractFiles
 
             // 3. Filter existing files and create hash set
             if(activeTab == 'deletedFiles') 
-                contractFiles = contractFiles.filter(file => !file.exists);
+                toshowFileList = contractFiles.filter(file => !file.exists);
             else 
-                contractFiles = contractFiles.filter(file => file.exists);
+                toshowFileList = contractFiles.filter(file => file.exists);
 
             const validHashes = new Set(
                 contractFiles.map(file => file.ipfsHash)
+            );
+
+            const toshowHashes = new Set(
+                toshowFileList.map(file => file.ipfsHash)
             );
 
             // 4. Get and filter Pinata files
@@ -180,12 +189,24 @@ function StorageApp() {
                     uploadTime: new Date(pin.date_pinned).getTime(),
                     exists: true
                 }));
+            const toshowFileData = response.data.rows
+                .filter(pin => toshowHashes.has(pin.ipfs_pin_hash)) // check if users owns the file
+                .map(pin => ({
+                    fileName: pin.metadata?.name || 'Unnamed File',
+                    ipfsHash: pin.ipfs_pin_hash,
+                    size: pin.size,
+                    uploadTime: new Date(pin.date_pinned).getTime(),
+                    exists: true
+                }));
 
             console.log("Final filtered files:", pinataFiles);
+            setToshowFile(toshowFileData)
             setFiles(pinataFiles);
 
         } catch (error) {
             console.error("Error in loadUserFiles:", error);
+        } finally {
+            setWaitforload(false);
         }
     };
 
@@ -285,17 +306,19 @@ function StorageApp() {
         <div className="min-h-screen w-full flex bg-gray-50">
             {/* Left Section (30%) */}
             <div className="w-1/4 bg-white shadow-md rounded-lg p-6">
-                <h1 className="text-2xl font-bold font-title text-neutral-950">Dashboard</h1>
+                <h1 className="text-2xl font-bold font-title text-left text-neutral-950">Dashboard</h1>
                 <div className="flex flex-col gap-4 mt-6">
                     <button
                         onClick={() => setActiveTab("myFiles")}
-                        className={`py-2 px-4 rounded-lg ${activeTab === "myFiles" ? "bg-blue-400" : "bg-blue-300"} text-white`}
+                        className={`hover:scale-103 hover:shadow-md
+                            py-2 px-4 rounded-lg ${activeTab === "myFiles" ? "bg-blue-400" : "bg-blue-300"} text-white`}
                     >
                         My Files
                     </button>
                     <button
                         onClick={() => setActiveTab("deletedFiles")}
-                        className={`py-2 px-4 rounded-lg ${activeTab === "deletedFiles" ? "bg-blue-400" : "bg-blue-300"} text-white`}
+                        className={`hover:scale-103 hover:shadow-md
+                            py-2 px-4 rounded-lg ${activeTab === "deletedFiles" ? "bg-blue-400" : "bg-blue-300"} text-white`}
                     >
                         Recently deleted
                     </button>
@@ -319,6 +342,9 @@ function StorageApp() {
                     </div>
                 </form>
                 <FileQuotaMeter STORAGE_QUOTA={STORAGE_QUOTA} totalFileSize={totalFileSize} />
+                <div className="mt-10">
+                    <p className="text-2xl font-bold font-serif"><span className="italic">Your file is safe at the moon</span> 🌑</p>
+                </div>
             </div>
     
             {/* Right Section (70%) */}
@@ -337,7 +363,7 @@ function StorageApp() {
                         <span className="col-span-3 text-left text-neutral-500 ml-4">Actions</span>
                     </div>
                     <div className="flex flex-col space-y-4 mt-4 w-full">
-                    {files.map((file, index) => {
+                    {!waitforload ? toshowFiles.map((file, index) => {
                         const truncatedFileName = file.fileName.length > 32 
                             ? `${file.fileName.slice(0, 32)}...` 
                             : file.fileName;
@@ -394,7 +420,7 @@ function StorageApp() {
                                 </div>
                             </div>
                         );
-                    })}
+                    }) : <LoadingSpinner />}
                     </div>
                 </div>
             </div>

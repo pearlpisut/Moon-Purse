@@ -1,0 +1,44 @@
+/* storageApp.css */
+
+/* Base button style */
+.action-button {
+    padding: 0.5rem 1rem;
+    border-radius: 0.375rem; /* Rounded corners */
+    font-weight: 600; /* Semi-bold text */
+    text-align: center;
+    cursor: pointer;
+    transition: background-color 0.3s, transform 0.2s;
+}
+
+/* Open button style */
+.action-button.open {
+    background-color: #4F46E5; /* Indigo */
+    color: white;
+}
+
+.action-button.open:hover {
+    background-color: #4338CA; /* Darker Indigo */
+    transform: scale(1.05); /* Slightly enlarge on hover */
+}
+
+/* Download button style */
+.action-button.download {
+    background-color: #3B82F6; /* Sky Blue */
+    color: white;
+}
+
+.action-button.download:hover {
+    background-color: #2563EB; /* Darker Sky Blue */
+    transform: scale(1.05); /* Slightly enlarge on hover */
+}
+
+/* Delete button style */
+.action-button.delete {
+    background-color: #EF4444; /* Red */
+    color: white;
+}
+
+.action-button.delete:hover {
+    background-color: #DC2626; /* Darker Red */
+    transform: scale(1.05); /* Slightly enlarge on hover */
+}
