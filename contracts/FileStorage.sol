@@ -54,18 +54,7 @@ contract FileStorage {
         return userFiles[msg.sender];
     }
 
-    // Delete a file
-    // function deleteFile(uint256 _fileIndex) public {
-    //     require(_fileIndex < userFiles[msg.sender].length, "File index out of bounds");
-    //     require(userFiles[msg.sender][_fileIndex].exists, "File already deleted");
-
-    //     string memory ipfsHash = userFiles[msg.sender][_fileIndex].ipfsHash;
-        
-    //     // Mark as deleted (we keep the array length same to maintain indices)
-    //     userFiles[msg.sender][_fileIndex].exists = false;
-        
-    //     emit FileDeleted(msg.sender, ipfsHash);
-    // }
+    // mark file flag as deleted
     function deleteFile(string memory _ipfsHash) public {
         bool fileFound = false;
         for (uint256 i = 0; i < userFiles[msg.sender].length; i++) {
@@ -81,20 +70,8 @@ contract FileStorage {
         }
         require(fileFound, "File not found");
     }
-    
-    // function recoverFile(uint256 _fileIndex) public {
-    //     require(_fileIndex < userFiles[msg.sender].length, "File index out of bounds");
-    //     require(!userFiles[msg.sender][_fileIndex].exists, "File is not deleted");
 
-    //     string memory ipfsHash = userFiles[msg.sender][_fileIndex].ipfsHash;
-    //     string memory fileName = userFiles[msg.sender][_fileIndex].fileName;
-    //     uint256 timestamp = block.timestamp;
-        
-    //     // Mark as recovered (i.e., exists = true)
-    //     userFiles[msg.sender][_fileIndex].exists = true;
-    //     emit FileRecovery(msg.sender, ipfsHash, fileName, timestamp);
-    // }
-
+    // mark file flag as exists
     function recoverFile(string memory _ipfsHash) public {
         bool fileFound = false;
         for (uint256 i = 0; i < userFiles[msg.sender].length; i++) {

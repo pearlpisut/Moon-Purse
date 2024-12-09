@@ -10,10 +10,8 @@ import LoadingSpinner from "../components/LoadingSpinner";
 
 function StorageApp() {
     const [files, setFiles] = useState([]); // all current user's files fetched from backend
-    const [toshowFiles, setToshowFile] = useState([])
-    const [waitforload, setWaitforload] = useState(false)
-    // const [file, setFile] = useState(null); // file being uploaded
-    // const [fileName, setFileName] = useState("No file selected"); // such file's name
+    const [toshowFiles, setToshowFile] = useState([]) // toggle between 'recently-deleted' files OR 'current' files
+    const [waitforload, setWaitforload] = useState(false) // for UI to display spinner while waiting data from Pinata
 
     // for UI purpose
     const [uploading, setUploading] = useState(false);
@@ -30,8 +28,6 @@ function StorageApp() {
         setTotalFileSize(totalSize/(1024*1024));
     }, [files]);
 
-    // update the current wallet address logged-in
-    // Function to get current wallet address
     const getWalletAddress = async () => {
         try {
             const provider = new BrowserProvider(window.ethereum);
@@ -50,15 +46,14 @@ function StorageApp() {
         // Listen for account changes
         const handleAccountsChanged = (accounts) => {
             if (accounts.length > 0) {
-                setCurrentWallet(accounts[0]); // Update state with new account
+                setCurrentWallet(accounts[0]);
             } else {
-                setCurrentWallet(""); // No accounts connected
+                setCurrentWallet("");
             }
         };
 
         window.ethereum.on('accountsChanged', handleAccountsChanged);
 
-        // Cleanup listener on component unmount
         return () => {
             window.ethereum.removeListener('accountsChanged', handleAccountsChanged);
         };
@@ -96,10 +91,8 @@ function StorageApp() {
 
             const ipfsHash = resFile.data.IpfsHash;
 
-            // 2. Store in smart contract with explicit network handling
-            const provider = new BrowserProvider(window.ethereum);
-            
-            // Wait for provider to be ready
+            // 2. Store in smart contract
+            const provider = new BrowserProvider(window.ethereum);            
             await provider.ready;
 
             const signer = await provider.getSigner();
@@ -117,11 +110,7 @@ function StorageApp() {
             const receipt = await tx.wait(1);
             console.log("Transaction confirmed:", receipt);
 
-            // Reset form
-            // setFileName("No file selected");
-            // setFile(null);
-            
-            // Refresh files list
+            // update list of current files
             await loadUserFiles();
 
         } catch (error) {
@@ -136,7 +125,7 @@ function StorageApp() {
         }
     };
 
-    // Function to load files from Pinata
+    // Load files from Pinata
     const loadUserFiles = async () => {
         try {
             setWaitforload(true);
@@ -213,8 +202,6 @@ function StorageApp() {
     const handleFileSelect = (e) => {
         const selectedFile = e.target.files[0];
         if (selectedFile) {
-            // setFile(selectedFile);
-            // setFileName(selectedFile.name);
             console.log("prepare to upload: ", selectedFile.name)
             handleSubmit(selectedFile)
         }
@@ -284,14 +271,6 @@ function StorageApp() {
             // console.log("File state before deletion:", files[fileIndex]);
             const tx = await contract.deleteFile(ipfsHash);
             await tx.wait();
-            // setFiles(files => {
-            //     const updatedFiles = [...files];
-            //     const fileIndex = updatedFiles.findIndex(file => file.ipfsHash === ipfsHash);
-            //     if (fileIndex !== -1) {
-            //         updatedFiles[fileIndex].exists = false;
-            //     }
-            //     return updatedFiles;
-            // });
             await loadUserFiles();
 
         } catch (error) {
