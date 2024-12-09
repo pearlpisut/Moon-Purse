@@ -4,6 +4,10 @@
 Moon Purse is a highly simple file storage powered by Ethereum to offer a portable file storage where users can store and access
 important files anywhere from passport copy to medical papers with blockchain-level security.
 
+<p align="center">
+  <img src = "https://github.com/pearlpisut/Moon-Purse/blob/master/public/proj-readme-img.JPG" width="650">
+</p>
+
 ## Tech Stack
 ### Frontend:
 React, Tailwind
