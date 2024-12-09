@@ -1,70 +1,44 @@
-# Getting Started with Create React App
+# Moon Purse
+**A blockchain-secured handy storage.**
 
-This project was bootstrapped with [Create React App](https://github.com/facebook/create-react-app).
+Moon Purse is a highly simple file storage powered by Ethereum to offer a portable file storage where users can store and access
+important files anywhere from passport copy to medical papers with blockchain-level security.
 
-## Available Scripts
+## Tech Stack
+### Frontend:
+React, Tailwind
+### Backend:
+Solidity (smart contract), Pinata IPFS (Storage), Hardhat
 
-In the project directory, you can run:
+## How to run
+1. fetch this repo to your device
+```
+git clone https://github.com/pearlpisut/Moon-Purse.git
+cd Moon-Purse
+```
+2. frontend set-up
+```
+npm install
+npm run start
+```
+The program is now running at `localhost:3000`
+3. backend set-up
+```
+npx hardhat init  # start a hardhat instance
+npx hardhat compile 
+npx hardhat node
+npx hardhat run scripts/deploy.js --network localhost # run this in another terminal
+```
+The last command deploys your smart contract on localhost:8545 and will return a contract address to your terminal. Copy it and paste it to `constants.js`.
+4. metamask hardhat network set-up
+Add a new network in MetaMask to connect to your hardhat local network with the following info:
+```
+Network name: <you choose>
+New RPC URL: http://127.0.0.1:8545/
+Chain ID: 1337
+Currency Symbol: ETH
+```
+Now, you can access the program and use it with your metamask account!
 
-### `npm start`
-
-Runs the app in the development mode.\
-Open [http://localhost:3000](http://localhost:3000) to view it in your browser.
-
-The page will reload when you make changes.\
-You may also see any lint errors in the console.
-
-### `npm test`
-
-Launches the test runner in the interactive watch mode.\
-See the section about [running tests](https://facebook.github.io/create-react-app/docs/running-tests) for more information.
-
-### `npm run build`
-
-Builds the app for production to the `build` folder.\
-It correctly bundles React in production mode and optimizes the build for the best performance.
-
-The build is minified and the filenames include the hashes.\
-Your app is ready to be deployed!
-
-See the section about [deployment](https://facebook.github.io/create-react-app/docs/deployment) for more information.
-
-### `npm run eject`
-
-**Note: this is a one-way operation. Once you `eject`, you can't go back!**
-
-If you aren't satisfied with the build tool and configuration choices, you can `eject` at any time. This command will remove the single build dependency from your project.
-
-Instead, it will copy all the configuration files and the transitive dependencies (webpack, Babel, ESLint, etc) right into your project so you have full control over them. All of the commands except `eject` will still work, but they will point to the copied scripts so you can tweak them. At this point you're on your own.
-
-You don't have to ever use `eject`. The curated feature set is suitable for small and middle deployments, and you shouldn't feel obligated to use this feature. However we understand that this tool wouldn't be useful if you couldn't customize it when you are ready for it.
-
-## Learn More
-
-You can learn more in the [Create React App documentation](https://facebook.github.io/create-react-app/docs/getting-started).
-
-To learn React, check out the [React documentation](https://reactjs.org/).
-
-### Code Splitting
-
-This section has moved here: [https://facebook.github.io/create-react-app/docs/code-splitting](https://facebook.github.io/create-react-app/docs/code-splitting)
-
-### Analyzing the Bundle Size
-
-This section has moved here: [https://facebook.github.io/create-react-app/docs/analyzing-the-bundle-size](https://facebook.github.io/create-react-app/docs/analyzing-the-bundle-size)
-
-### Making a Progressive Web App
-
-This section has moved here: [https://facebook.github.io/create-react-app/docs/making-a-progressive-web-app](https://facebook.github.io/create-react-app/docs/making-a-progressive-web-app)
-
-### Advanced Configuration
-
-This section has moved here: [https://facebook.github.io/create-react-app/docs/advanced-configuration](https://facebook.github.io/create-react-app/docs/advanced-configuration)
-
-### Deployment
-
-This section has moved here: [https://facebook.github.io/create-react-app/docs/deployment](https://facebook.github.io/create-react-app/docs/deployment)
-
-### `npm run build` fails to minify
-
-This section has moved here: [https://facebook.github.io/create-react-app/docs/troubleshooting#npm-run-build-fails-to-minify](https://facebook.github.io/create-react-app/docs/troubleshooting#npm-run-build-fails-to-minify)
+## Developer
+Phutanate Pisutsin - 1155163440
