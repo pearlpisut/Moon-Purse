@@ -9,8 +9,8 @@ import { downloadImage, formatFileSize } from '../utils/utilFunctions';
 
 function StorageApp() {
     const [files, setFiles] = useState([]); // all current user's files fetched from backend
-    const [file, setFile] = useState(null); // file being uploaded
-    const [fileName, setFileName] = useState("No file selected"); // such file's name
+    // const [file, setFile] = useState(null); // file being uploaded
+    // const [fileName, setFileName] = useState("No file selected"); // such file's name
 
     // for UI purpose
     const [uploading, setUploading] = useState(false);
@@ -64,7 +64,7 @@ function StorageApp() {
     // update the current list of files
     useEffect(() => {
         loadUserFiles();
-    }, [currentWallet]);
+    }, [currentWallet, activeTab]);
     
     // Function to handle file upload to Pinata and smart contract
     const handleSubmit = async (selectedFile) => {
@@ -115,8 +115,8 @@ function StorageApp() {
             console.log("Transaction confirmed:", receipt);
 
             // Reset form
-            setFileName("No file selected");
-            setFile(null);
+            // setFileName("No file selected");
+            // setFile(null);
             
             // Refresh files list
             await loadUserFiles();
@@ -148,11 +148,16 @@ function StorageApp() {
                 CONTRACT_ABI,
                 signer
             );
-            const contractFiles = await contract.getUserFiles();
+            var contractFiles = await contract.getUserFiles();
 
             // 3. Filter existing files and create hash set
+            if(activeTab == 'deletedFiles') 
+                contractFiles = contractFiles.filter(file => !file.exists);
+            else 
+                contractFiles = contractFiles.filter(file => file.exists);
+
             const validHashes = new Set(
-                contractFiles.filter(file => file.exists).map(file => file.ipfsHash)
+                contractFiles.map(file => file.ipfsHash)
             );
 
             // 4. Get and filter Pinata files
@@ -187,18 +192,40 @@ function StorageApp() {
     const handleFileSelect = (e) => {
         const selectedFile = e.target.files[0];
         if (selectedFile) {
-            setFile(selectedFile);
-            setFileName(selectedFile.name);
+            // setFile(selectedFile);
+            // setFileName(selectedFile.name);
             console.log("prepare to upload: ", selectedFile.name)
             handleSubmit(selectedFile)
         }
     };
 
-    const handleDeleteFile = async (fileIndex, ipfsHash) => {
+    const handlePermanentlyDeleteFile = async (ipfsHash) => {
         try {
-            setIsDeleting(true); // Reuse the loading state
+            // delete from pinata IPFS data storage
+            setIsDeleting(true);
+            await axios.delete(
+                `https://api.pinata.cloud/pinning/unpin/${ipfsHash}`,
+                {
+                    headers: {
+                        pinata_api_key: process.env.REACT_APP_PINATA_API_KEY,
+                        pinata_secret_api_key: process.env.REACT_APP_PINATA_SECRET_KEY,
+                    },
+                }
+            );
 
-            // 1. Delete from smart contract
+            await loadUserFiles();
+
+        } catch (error) {
+            console.error("Error permanently deleting file:", error);
+            alert("Failed to permanently delete file");
+        } finally {
+            setIsDeleting(false);
+        }
+    }
+
+    const handleRecoverFile = async (fileIndex, ipfsHash) => {
+        try {
+            setIsDeleting(true);
             const provider = new BrowserProvider(window.ethereum);
             const signer = await provider.getSigner();
             const contract = new Contract(
@@ -207,33 +234,50 @@ function StorageApp() {
                 signer
             );
 
-            const tx = await contract.deleteFile(fileIndex);
+            const tx = await contract.recoverFile(ipfsHash);
             await tx.wait();
 
-            // 2. Delete from Pinata
-            try {
-                await axios.delete(
-                    `https://api.pinata.cloud/pinning/unpin/${ipfsHash}`,
-                    {
-                        headers: {
-                            pinata_api_key: process.env.REACT_APP_PINATA_API_KEY,
-                            pinata_secret_api_key: process.env.REACT_APP_PINATA_SECRET_KEY,
-                        },
-                    }
-                );
-            } catch (pinataError) {
-                console.error("Error unpinning from Pinata:", pinataError);
-                // Continue even if Pinata deletion fails
-            }
+            await loadUserFiles();
 
-            // 3. Refresh the file list
+        } catch (error) {
+            console.error("Error recovering file:", error);
+            alert("Failed to recover file");
+        } finally {
+            setIsDeleting(false);
+        }
+    };
+
+    const handleDeleteFile = async (fileIndex, ipfsHash) => {
+        try {
+            // Delete from smart contract only.
+            setIsDeleting(true);
+
+            const provider = new BrowserProvider(window.ethereum);
+            const signer = await provider.getSigner();
+            const contract = new Contract(
+                CONTRACT_ADDRESS,
+                CONTRACT_ABI,
+                signer
+            );
+            console.log("Attempting to delete file at address:", ipfsHash);
+            // console.log("File state before deletion:", files[fileIndex]);
+            const tx = await contract.deleteFile(ipfsHash);
+            await tx.wait();
+            // setFiles(files => {
+            //     const updatedFiles = [...files];
+            //     const fileIndex = updatedFiles.findIndex(file => file.ipfsHash === ipfsHash);
+            //     if (fileIndex !== -1) {
+            //         updatedFiles[fileIndex].exists = false;
+            //     }
+            //     return updatedFiles;
+            // });
             await loadUserFiles();
 
         } catch (error) {
             console.error("Error deleting file:", error);
             alert("Failed to delete file");
         } finally {
-            setUploading(false);
+            setIsDeleting(false);
         }
     };
 
@@ -250,10 +294,10 @@ function StorageApp() {
                         My Files
                     </button>
                     <button
-                        onClick={() => setActiveTab("shared")}
-                        className={`py-2 px-4 rounded-lg ${activeTab === "shared" ? "bg-blue-400" : "bg-blue-300"} text-white`}
+                        onClick={() => setActiveTab("deletedFiles")}
+                        className={`py-2 px-4 rounded-lg ${activeTab === "deletedFiles" ? "bg-blue-400" : "bg-blue-300"} text-white`}
                     >
-                        Shared
+                        Recently deleted
                     </button>
                 </div>
                 <form className="mb-8">
@@ -293,8 +337,7 @@ function StorageApp() {
                         <span className="col-span-3 text-left text-neutral-500 ml-4">Actions</span>
                     </div>
                     <div className="flex flex-col space-y-4 mt-4 w-full">
-                    {activeTab == 'myFiles' ? 
-                        files.map((file, index) => {
+                    {files.map((file, index) => {
                         const truncatedFileName = file.fileName.length > 32 
                             ? `${file.fileName.slice(0, 32)}...` 
                             : file.fileName;
@@ -309,31 +352,49 @@ function StorageApp() {
                                     {file.size ? formatFileSize(file.size) : 'Unknown'}
                                 </span>
                                 <div className="col-span-3 flex gap-2 justify-start ml-4">
-                                    <a
+                                    { activeTab === "myFiles" && <a
                                         href={`https://gateway.pinata.cloud/ipfs/${file.ipfsHash}`}
                                         target="_blank"
                                         rel="noopener noreferrer"
                                         className="text-xs bg-green-400 hover:bg-green-700 text-white font-semibold py-1 px-3 rounded"
                                     >
                                         View
-                                    </a>
+                                    </a>}
+                                    {activeTab === "myFiles" && 
                                     <button
                                         onClick={() => downloadImage(`https://gateway.pinata.cloud/ipfs/${file.ipfsHash}`, file.fileName)}
                                         className="text-xs bg-blue-500 hover:bg-blue-700 text-white font-semibold py-1 px-3 rounded"
                                     >
                                         Download
-                                    </button>
+                                    </button>}
+                                    { activeTab === "myFiles" &&
                                     <button
                                         onClick={() => handleDeleteFile(index, file.ipfsHash)}
                                         className="text-xs bg-red-500 hover:bg-red-700 text-white font-semibold py-1 px-3 rounded"
                                         disabled={isDeleting}
                                     >
-                                        {isDeleting ? 'Deleting...' : 'Delete'}
-                                    </button>
+                                        Delete
+                                    </button>}
+                                    { activeTab === "deletedFiles" &&
+                                    <button
+                                        onClick={() => handleRecoverFile(index, file.ipfsHash)}
+                                        className="text-xs bg-violet-500 hover:bg-violet-700 text-white font-semibold py-1 px-3 rounded"
+                                        disabled={isDeleting}
+                                    >
+                                        Recover
+                                    </button>}
+                                    { activeTab === "deletedFiles" &&
+                                    <button
+                                        onClick={() => handlePermanentlyDeleteFile(file.ipfsHash)}
+                                        className="text-xs bg-red-500 hover:bg-red-700 text-white font-semibold py-1 px-3 rounded"
+                                        disabled={isDeleting}
+                                    >
+                                        Permanently Delete
+                                    </button>}
                                 </div>
                             </div>
                         );
-                    }) : <p>implement shared page</p>}
+                    })}
                     </div>
                 </div>
             </div>
